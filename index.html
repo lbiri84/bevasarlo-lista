@@ -241,21 +241,22 @@
       listEl.innerHTML = `<div class="empty"><div class="big">🧺</div><p>Nincs még semmi a listán.<br>Írj be valamit alul, vagy koppints egy javaslatra.</p></div>`;
     } else {
       let html = '';
-      for (const c of CATS) {
-        const items = state.items.filter(i => i.cat === c.id)
-          .sort((a, b) => a.done - b.done || a.added - b.added);
-        if (!items.length) continue;
-        html += `<section class="group"><h2>${c.icon} ${c.name}</h2><ul>`;
-        for (const i of items) {
-          html += `<li class="item${i.done ? ' done' : ''}" data-id="${i.id}">
+      const row = i => `<li class="item${i.done ? ' done' : ''}" data-id="${i.id}">
             <input type="checkbox" class="check" ${i.done ? 'checked' : ''} aria-label="Kipipál">
             <div class="label" data-act="edit">${esc(i.name)}${i.qty ? `<small>${esc(i.qty)}</small>` : ''}</div>
             <button class="del" data-act="del" aria-label="Törlés">✕</button>
           </li>`;
-        }
-        html += `</ul></section>`;
+      // Nyitott tételek kategóriánként, a kipipáltak egy külön szakaszban legalul, hogy fogyjon a lista.
+      for (const c of CATS) {
+        const items = state.items.filter(i => i.cat === c.id && !i.done).sort((a, b) => a.added - b.added);
+        if (!items.length) continue;
+        html += `<section class="group"><h2>${c.icon} ${c.name}</h2><ul>${items.map(row).join('')}</ul></section>`;
       }
-      if (done) html += `<button class="clear" id="clearDone">Kipipáltak törlése (${done})</button>`;
+      if (done) {
+        const items = state.items.filter(i => i.done).sort((a, b) => a.added - b.added);
+        html += `<section class="group done-group"><h2>✓ Kipipálva</h2><ul>${items.map(row).join('')}</ul></section>`;
+        html += `<button class="clear" id="clearDone">Kipipáltak törlése (${done})</button>`;
+      }
       listEl.innerHTML = html;
     }
     renderChips();
