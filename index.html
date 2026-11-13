@@ -95,11 +95,12 @@
   input[type="search"] { -webkit-appearance: none; appearance: none; }
   input[type="search"]::-webkit-search-decoration,
   input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
-  /* Egysoros szövegdoboz (textarea): az iOS Safari az input mezőknél névjegy-kitöltést ajánlana. */
-  textarea { font-family: inherit; resize: none; overflow: hidden; display: block; }
-  .addbar textarea { flex: 1; min-width: 0; height: 52px; border-radius: 26px; border: 1px solid var(--line);
+  /* Szerkeszthető div (nem input/textarea): az iOS Safari az űrlapmezőkhöz névjegy-kitöltést ajánlana, ide nem. */
+  .field { font-family: inherit; display: block; overflow: hidden; white-space: nowrap; -webkit-user-select: text; user-select: text; }
+  .field:empty::before { content: attr(data-placeholder); color: var(--muted, #8a97a3); pointer-events: none; }
+  .addbar .field { flex: 1; min-width: 0; height: 52px; border-radius: 26px; border: 1px solid var(--line);
     background: var(--card); color: var(--text); font-size: 17px; line-height: 24px; padding: 13px 20px; box-shadow: var(--shadow); outline: none; }
-  .addbar textarea:focus { border-color: var(--accent); }
+  .addbar .field:focus { border-color: var(--accent); }
   .addbar form button { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--accent);
     color: var(--brand-black); font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
   .addbar form button:active { transform: scale(.95); }
@@ -135,7 +136,7 @@
   .pick-item.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
   .pick-item.on::before { content: "✓ "; }
   dialog h3 { margin: 0 0 12px; }
-  dialog textarea { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line);
+  dialog .field { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line);
     background: var(--bg); color: var(--text); font-size: 16px; line-height: 22px; padding: 11px 14px; margin-bottom: 10px; }
   dialog .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
   dialog .btn { border: 0; border-radius: 12px; padding: 12px 16px; font-size: 15px; cursor: pointer;
@@ -164,7 +165,7 @@
 <div class="addbar">
   <div class="chips" id="chips"></div>
   <form id="form" autocomplete="off">
-    <textarea id="input" name="bevasarlo-tetel" rows="1" enterkeyhint="done" placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"></textarea>
+    <div id="input" class="field" contenteditable="plaintext-only" role="textbox" aria-multiline="false" enterkeyhint="done" data-placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocorrect="off" spellcheck="false"></div>
     <button type="submit" aria-label="Hozzáadás vagy válogatás">+</button>
   </form>
 </div>
@@ -174,7 +175,7 @@
 <dialog id="editDlg">
   <form method="dialog" id="editForm">
     <h3>Tétel szerkesztése</h3>
-    <textarea id="editName" name="bevasarlo-tetel-szerkesztes" rows="1" placeholder="Név" required autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"></textarea>
+    <div id="editName" class="field" contenteditable="plaintext-only" role="textbox" aria-multiline="false" data-placeholder="Név" aria-label="Név" autocorrect="off" spellcheck="false"></div>
     <select id="editCat" style="width:100%;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px;padding:0 10px"></select>
     <div class="btns">
       <button class="btn" value="cancel" type="button" id="editCancel">Mégse</button>
@@ -269,6 +270,11 @@
   // ---- elemek ----
   const $ = id => document.getElementById(id);
   const listEl = $('list'), form = $('form'), input = $('input'), chipsEl = $('chips');
+  // a szerkeszthető div-ek úgy viselkednek, mint egy mező: .value
+  [input, $('editName')].forEach(el => {
+    Object.defineProperty(el, 'value', { get() { return el.textContent; }, set(v) { el.textContent = v; } });
+    el.addEventListener('paste', e => { e.preventDefault(); document.execCommand('insertText', false, (e.clipboardData.getData('text/plain') || '').replace(/\s*\n+\s*/g, ' ')); });
+  });
 
   // ---- render ----
   function render() {
