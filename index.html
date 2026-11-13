@@ -194,9 +194,20 @@
   <div class="btns"><button class="btn primary" id="pickClose" type="button">Kész</button></div>
 </dialog>
 
+<dialog id="importDlg">
+  <h3>Lista érkezett</h3>
+  <p id="importMsg" style="margin:0 0 8px"></p>
+  <div class="btns" style="flex-direction:column;align-items:stretch">
+    <button class="btn primary" id="impMerge" type="button">Hozzáadás a listámhoz</button>
+    <button class="btn" id="impReplace" type="button">Lecserélem a listámat erre</button>
+    <button class="btn" id="impCancel" type="button">Mégse</button>
+  </div>
+</dialog>
+
 <dialog id="menuDlg">
   <h3>Lista</h3>
   <div class="menu">
+    <button id="linkBtn">🔗 Lista küldése linkként</button>
     <button id="shareBtn">📤 Lista megosztása / másolása</button>
     <button id="uncheckBtn">↺ Mind visszaállítása (nincs kipipálva)</button>
     <button id="clearAllBtn">🗑️ Teljes lista törlése</button>
@@ -493,6 +504,73 @@
   });
   $('pickClose').addEventListener('click', () => pickDlg.close());
 
+  // ---- lista küldése linkként: a tartalom a link # utáni részében utazik (a szerverre nem megy el) ----
+  const b64 = bytes => { let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
+  const unb64 = t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+  async function pipe(bytes, Stream) {
+    const s = new Blob([bytes]).stream().pipeThrough(new Stream('deflate-raw'));
+    return new Uint8Array(await new Response(s).arrayBuffer());
+  }
+  async function encodeList() {
+    const data = state.items.map(i => [i.name, i.qty || '', i.cat, i.done ? 1 : 0]);
+    const raw = new TextEncoder().encode(JSON.stringify(data));
+    if (typeof CompressionStream !== 'undefined') {
+      try { return 'z' + b64(await pipe(raw, CompressionStream)); } catch (e) {}
+    }
+    return 'j' + b64(raw);
+  }
+  async function decodeList(code) {
+    let bytes = unb64(code.slice(1));
+    if (code[0] === 'z') bytes = await pipe(bytes, DecompressionStream);
+    const data = JSON.parse(new TextDecoder().decode(bytes));
+    if (!Array.isArray(data)) throw new Error('bad');
+    const ids = new Set(CATS.map(c => c.id));
+    return data.slice(0, 500).filter(r => Array.isArray(r) && typeof r[0] === 'string' && r[0].trim()).map(r => ({
+      name: String(r[0]).slice(0, 80), qty: String(r[1] || '').slice(0, 30),
+      cat: ids.has(r[2]) ? r[2] : 'egyeb', done: !!r[3],
+    }));
+  }
+  $('linkBtn').addEventListener('click', async () => {
+    menuDlg.close();
+    if (!state.items.length) { toast('A lista üres, nincs mit küldeni'); return; }
+    const url = location.origin + location.pathname + '#l=' + await encodeList();
+    try {
+      if (navigator.share) { await navigator.share({ title: 'Bevásárlólista', text: `Bevásárlólista (${state.items.length} tétel). Nyisd meg, és betöltődik:`, url }); return; }
+      await navigator.clipboard.writeText(url);
+      toast('Link a vágólapon, küldd el üzenetben');
+    } catch (e) { /* megszakítva */ }
+  });
+  let incoming = null;
+  const importDlg = $('importDlg');
+  async function checkIncoming() {
+    const m = /^#l=([zj][A-Za-z0-9_-]+)$/.exec(location.hash);
+    if (!m) return;
+    history.replaceState(null, '', location.pathname + location.search);
+    try { incoming = await decodeList(m[1]); } catch (e) { toast('A link hibás, nem tudtam betölteni'); return; }
+    if (!incoming.length) return;
+    $('importMsg').textContent = `${incoming.length} tétel érkezett.` + (state.items.length ? ` A jelenlegi listádon ${state.items.length} tétel van.` : '');
+    $('impMerge').hidden = !state.items.length;
+    $('impReplace').textContent = state.items.length ? 'Lecserélem a listámat erre' : 'Betöltés';
+    $('impReplace').classList.toggle('primary', !state.items.length);
+    importDlg.showModal();
+  }
+  function applyIncoming(replace) {
+    if (!incoming) return;
+    if (replace) state.items = [];
+    const now = Date.now();
+    incoming.forEach((r, k) => {
+      const ex = state.items.find(i => fold(i.name) === fold(r.name));
+      if (ex) { if (r.qty) ex.qty = r.qty; return; }
+      state.items.push({ id: uid(), name: r.name, qty: r.qty, cat: r.cat, done: r.done, added: now + k });
+      bumpHistory(r.name, r.cat);
+    });
+    incoming = null; save(); render(); importDlg.close();
+  }
+  $('impMerge').addEventListener('click', () => applyIncoming(false));
+  $('impReplace').addEventListener('click', () => applyIncoming(true));
+  $('impCancel').addEventListener('click', () => { incoming = null; importDlg.close(); });
+  window.addEventListener('hashchange', checkIncoming);
+
   // ---- PWA ----
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -510,6 +588,7 @@
   });
 
   render();
+  checkIncoming();
 })();
 </script>
 </body>
