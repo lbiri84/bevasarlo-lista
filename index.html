@@ -118,6 +118,16 @@
   dialog { border: 0; border-radius: var(--radius-lg); padding: 20px; background: var(--card); color: var(--text);
     width: min(92vw, 380px); box-shadow: 0 0 0 1px var(--line); }
   dialog::backdrop { background: rgba(0,0,0,.4); }
+  .pick-cats { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+  .pick-cat { width: 48px; height: 48px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg);
+    font-size: 24px; line-height: 1; cursor: pointer; display: grid; place-content: center; }
+  .pick-cat[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .pick-title { font-size: 14px; font-weight: 600; color: var(--muted); margin: 0 0 8px; }
+  .pick-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 42vh; overflow-y: auto; padding: 2px; }
+  .pick-item { border: 1px solid var(--line); background: var(--bg); color: var(--text); border-radius: 99px;
+    padding: 9px 14px; font-size: 15px; cursor: pointer; font-family: inherit; }
+  .pick-item.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .pick-item.on::before { content: "✓ "; }
   dialog h3 { margin: 0 0 12px; }
   dialog textarea { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line);
     background: var(--bg); color: var(--text); font-size: 16px; line-height: 22px; padding: 11px 14px; margin-bottom: 10px; }
@@ -149,7 +159,7 @@
   <div class="chips" id="chips"></div>
   <form id="form" autocomplete="off">
     <textarea id="input" name="bevasarlo-tetel" rows="1" enterkeyhint="done" placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"></textarea>
-    <button type="submit" aria-label="Hozzáadás">+</button>
+    <button type="submit" aria-label="Hozzáadás vagy válogatás">+</button>
   </form>
 </div>
 
@@ -165,6 +175,14 @@
       <button class="btn primary" value="ok">Mentés</button>
     </div>
   </form>
+</dialog>
+
+<dialog id="pickDlg">
+  <h3>Mit vegyünk?</h3>
+  <div class="pick-cats" id="pickCats" role="group" aria-label="Kategóriák"></div>
+  <p class="pick-title" id="pickTitle"></p>
+  <div class="pick-list" id="pickList"></div>
+  <div class="btns"><button class="btn primary" id="pickClose" type="button">Kész</button></div>
 </dialog>
 
 <dialog id="menuDlg">
@@ -320,7 +338,7 @@
   form.addEventListener('submit', e => {
     e.preventDefault();
     const v = input.value.trim();
-    if (!v) return;
+    if (!v) { openPicker(); return; }
     // vesszővel elválasztva több tétel is mehet egyszerre
     v.split(',').map(s => s.trim()).filter(Boolean).forEach(s => addItem(s));
     input.value = '';
@@ -415,6 +433,48 @@
       toast('Vágólapra másolva');
     } catch (e) { /* megszakítva */ }
   });
+
+
+  // ---- válogatás kategóriánként (a + gomb üres mezőnél) ----
+  const CATALOG = {
+    zold: ['Alma','Banán','Narancs','Citrom','Szőlő','Eper','Paradicsom','Paprika','Uborka','Hagyma','Fokhagyma','Krumpli','Sárgarépa','Saláta','Brokkoli','Cukkini','Gomba','Avokádo'],
+    tej: ['Tej','Tojás','Vaj','Tejföl','Joghurt','Túró','Sajt','Tejszín','Mozzarella','Kefir','Margarin'],
+    hus: ['Csirkemell','Csirkecomb','Darált hús','Sertéskaraj','Virsli','Felvágott','Sonka','Szalámi','Bacon','Pulykamell','Hal'],
+    pek: ['Kenyér','Zsemle','Kifli','Bagett','Pogácsa','Toast kenyér','Tortilla'],
+    szaraz: ['Tészta','Rizs','Liszt','Cukor','Só','Olaj','Konzerv kukorica','Bab','Lencse','Zabpehely','Kávé','Tea','Méz','Lekvár','Csokoládé','Keksz','Ketchup','Mustár'],
+    ital: ['Ásványvíz','Szóda','Narancslé','Üdítő','Sör','Bor','Energiaital'],
+    fagy: ['Fagyasztott zöldség','Fagyasztott pizza','Jégkrém','Fagyasztott hal'],
+    haztartas: ['WC-papír','Papírtörlő','Zsebkendő','Mosogatószer','Mosópor','Szemeteszsák','Szappan','Tusfürdő','Sampon','Fogkrém','Alufólia'],
+    egyeb: ['Elem','Izzó','Gyertya','Szalvéta'],
+  };
+  const pickDlg = $('pickDlg'); let pickCat = CATS[0].id;
+  function pickItems(cat) {
+    const names = [...(CATALOG[cat] || [])];
+    state.history.filter(x => x.cat === cat).forEach(x => { if (!names.some(n => fold(n) === fold(x.name))) names.push(x.name); });
+    state.items.filter(i => i.cat === cat).forEach(i => { if (!names.some(n => fold(n) === fold(i.name))) names.push(i.name); });
+    return names;
+  }
+  function renderPick() {
+    $('pickCats').innerHTML = CATS.map(c => `<button type="button" class="pick-cat" data-cat="${c.id}" aria-pressed="${c.id === pickCat}" aria-label="${c.name}" title="${c.name}">${c.icon}</button>`).join('');
+    const cat = CATS.find(c => c.id === pickCat);
+    $('pickTitle').textContent = cat.name;
+    const onList = new Set(state.items.filter(i => !i.done).map(i => fold(i.name)));
+    $('pickList').innerHTML = pickItems(pickCat).map(n => `<button type="button" class="pick-item${onList.has(fold(n)) ? ' on' : ''}" data-name="${esc(n)}">${esc(n)}</button>`).join('');
+  }
+  function openPicker() { input.blur(); renderPick(); pickDlg.showModal(); }
+  $('pickCats').addEventListener('click', e => {
+    const b = e.target.closest('.pick-cat'); if (!b) return;
+    pickCat = b.dataset.cat; renderPick();
+  });
+  $('pickList').addEventListener('click', e => {
+    const b = e.target.closest('.pick-item'); if (!b) return;
+    const name = b.dataset.name;
+    const ex = state.items.find(i => fold(i.name) === fold(name) && !i.done);
+    if (ex) { state.items = state.items.filter(i => i !== ex); save(); render(); }
+    else addItem(name, pickCat);
+    renderPick();
+  });
+  $('pickClose').addEventListener('click', () => pickDlg.close());
 
   // ---- PWA ----
   if ('serviceWorker' in navigator) {
