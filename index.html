@@ -12,16 +12,8 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Bevásárlólista</title>
 <script>
-  // A design system két témája (slate / light) a rendszerbeállítást követi.
-  (function () {
-    var mq = matchMedia('(prefers-color-scheme: light)');
-    function apply() {
-      document.documentElement.dataset.theme = mq.matches ? 'light' : 'slate';
-      var m = document.querySelector('meta[name="theme-color"]');
-      if (m) m.content = mq.matches ? '#eaecf0' : '#293c4b';
-    }
-    apply(); mq.addEventListener('change', apply);
-  })();
+  // Mindig a palakék (slate) téma, mint a főoldalon és az Interfood oldalon.
+  document.documentElement.dataset.theme = 'slate';
 </script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -37,7 +29,7 @@
     --danger: #e2766c;
     --shadow: 0 0 0 1px var(--line);
     --radius: var(--radius-md);
-    color-scheme: light dark;
+    color-scheme: dark;
   }
   :root[data-theme="light"] { --danger: #b3392f; color-scheme: light; }
   :root[data-theme="slate"] { color-scheme: dark; }
