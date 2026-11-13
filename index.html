@@ -91,6 +91,10 @@
   .addbar { position: fixed; left: 0; right: 0; bottom: 0; background: linear-gradient(transparent, var(--bg) 35%);
     padding: 24px 0 calc(14px + env(safe-area-inset-bottom)); }
   .addbar form { display: flex; gap: 8px; max-width: 640px; margin: 0 auto; padding: 0 16px; }
+  /* type="search": a mobilböngészők nem ajánlanak névjegy-kitöltést; a keresőmező megjelenését kikapcsoljuk. */
+  input[type="search"] { -webkit-appearance: none; appearance: none; }
+  input[type="search"]::-webkit-search-decoration,
+  input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
   .addbar input { flex: 1; min-width: 0; height: 52px; border-radius: 26px; border: 1px solid var(--line);
     background: var(--card); color: var(--text); font-size: 17px; padding: 0 20px; box-shadow: var(--shadow); outline: none; }
   .addbar input:focus { border-color: var(--accent); }
@@ -142,7 +146,7 @@
 <div class="addbar">
   <div class="chips" id="chips"></div>
   <form id="form" autocomplete="off">
-    <input id="input" name="bevasarlo-tetel" type="text" enterkeyhint="done" placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+    <input id="input" name="bevasarlo-tetel" type="search" inputmode="text" enterkeyhint="done" placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
     <button type="submit" aria-label="Hozzáadás">+</button>
   </form>
 </div>
@@ -152,7 +156,7 @@
 <dialog id="editDlg">
   <form method="dialog" id="editForm">
     <h3>Tétel szerkesztése</h3>
-    <input id="editName" name="bevasarlo-tetel-szerkesztes" placeholder="Név" required autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+    <input id="editName" name="bevasarlo-tetel-szerkesztes" type="search" inputmode="text" placeholder="Név" required autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
     <select id="editCat" style="width:100%;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px;padding:0 10px"></select>
     <div class="btns">
       <button class="btn" value="cancel" type="button" id="editCancel">Mégse</button>
