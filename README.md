@@ -8,3 +8,8 @@ Egyszerű, mobilbarát bevásárlólista. Egyetlen `index.html`, build nélkül,
 - gyakran vett dolgok gyorsjavaslatként
 - sötét mód, offline működés, telepíthető a kezdőképernyőre (PWA)
 - lista megosztása szövegként
+
+## Publikálás
+
+GitHub Pages (`main` / root), egyéni domain: `bevasarlas.laszlobiri.com` (a `CNAME` fájl tartalmazza).
+DNS (Namecheap): `CNAME` rekord, host `bevasarlas`, érték `lbiri84.github.io`.
