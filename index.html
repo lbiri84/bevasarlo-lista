@@ -95,9 +95,11 @@
   input[type="search"] { -webkit-appearance: none; appearance: none; }
   input[type="search"]::-webkit-search-decoration,
   input[type="search"]::-webkit-search-cancel-button { -webkit-appearance: none; display: none; }
-  .addbar input { flex: 1; min-width: 0; height: 52px; border-radius: 26px; border: 1px solid var(--line);
-    background: var(--card); color: var(--text); font-size: 17px; padding: 0 20px; box-shadow: var(--shadow); outline: none; }
-  .addbar input:focus { border-color: var(--accent); }
+  /* Egysoros szövegdoboz (textarea): az iOS Safari az input mezőknél névjegy-kitöltést ajánlana. */
+  textarea { font-family: inherit; resize: none; overflow: hidden; display: block; }
+  .addbar textarea { flex: 1; min-width: 0; height: 52px; border-radius: 26px; border: 1px solid var(--line);
+    background: var(--card); color: var(--text); font-size: 17px; line-height: 24px; padding: 13px 20px; box-shadow: var(--shadow); outline: none; }
+  .addbar textarea:focus { border-color: var(--accent); }
   .addbar form button { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--accent);
     color: var(--brand-black); font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
   .addbar form button:active { transform: scale(.95); }
@@ -117,8 +119,8 @@
     width: min(92vw, 380px); box-shadow: 0 0 0 1px var(--line); }
   dialog::backdrop { background: rgba(0,0,0,.4); }
   dialog h3 { margin: 0 0 12px; }
-  dialog input { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line);
-    background: var(--bg); color: var(--text); font-size: 16px; padding: 0 14px; margin-bottom: 10px; }
+  dialog textarea { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); font-size: 16px; line-height: 22px; padding: 11px 14px; margin-bottom: 10px; }
   dialog .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
   dialog .btn { border: 0; border-radius: 12px; padding: 12px 16px; font-size: 15px; cursor: pointer;
     background: var(--bg); color: var(--text); }
@@ -146,7 +148,7 @@
 <div class="addbar">
   <div class="chips" id="chips"></div>
   <form id="form" autocomplete="off">
-    <input id="input" name="bevasarlo-tetel" type="search" inputmode="text" enterkeyhint="done" placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+    <textarea id="input" name="bevasarlo-tetel" rows="1" enterkeyhint="done" placeholder="Mit vegyünk? pl. 2 l tej" aria-label="Új tétel" autocapitalize="sentences" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"></textarea>
     <button type="submit" aria-label="Hozzáadás">+</button>
   </form>
 </div>
@@ -156,7 +158,7 @@
 <dialog id="editDlg">
   <form method="dialog" id="editForm">
     <h3>Tétel szerkesztése</h3>
-    <input id="editName" name="bevasarlo-tetel-szerkesztes" type="search" inputmode="text" placeholder="Név" required autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other">
+    <textarea id="editName" name="bevasarlo-tetel-szerkesztes" rows="1" placeholder="Név" required autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore data-form-type="other"></textarea>
     <select id="editCat" style="width:100%;height:46px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--text);font-size:16px;padding:0 10px"></select>
     <div class="btns">
       <button class="btn" value="cancel" type="button" id="editCancel">Mégse</button>
@@ -420,6 +422,15 @@
   }
   // más fülön/ablakban történt változás
   window.addEventListener('storage', e => { if (e.key === KEY) { state = load(); render(); } });
+
+  // Enter küldi el (az egysoros textarea nem szúr be új sort)
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); form.requestSubmit(); }
+  });
+  input.addEventListener('input', () => { if (input.value.includes('\n')) input.value = input.value.replace(/\n+/g, ' '); });
+  $('editName').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); $('editForm').requestSubmit(); }
+  });
 
   render();
 })();
