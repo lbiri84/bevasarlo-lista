@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#2f7d5b">
+<meta name="theme-color" content="#293c4b">
 <meta name="robots" content="noindex">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bevásárlás">
@@ -11,41 +11,49 @@
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <title>Bevásárlólista</title>
-<style>
-  :root {
-    --bg: #f5f3ee;
-    --card: #ffffff;
-    --text: #1f2a24;
-    --muted: #7b857f;
-    --line: #e6e2d8;
-    --accent: #2f7d5b;
-    --accent-soft: #e2f1ea;
-    --danger: #c0443a;
-    --shadow: 0 1px 2px rgba(20,30,25,.06), 0 6px 18px rgba(20,30,25,.06);
-    --radius: 16px;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #121815;
-      --card: #1b231f;
-      --text: #e8efea;
-      --muted: #8a968f;
-      --line: #2a342f;
-      --accent: #4fb88a;
-      --accent-soft: #1f3a2e;
-      --danger: #e2766c;
-      --shadow: 0 1px 2px rgba(0,0,0,.3);
+<script>
+  // A design system két témája (slate / light) a rendszerbeállítást követi.
+  (function () {
+    var mq = matchMedia('(prefers-color-scheme: light)');
+    function apply() {
+      document.documentElement.dataset.theme = mq.matches ? 'light' : 'slate';
+      var m = document.querySelector('meta[name="theme-color"]');
+      if (m) m.content = mq.matches ? '#eaecf0' : '#293c4b';
     }
+    apply(); mq.addEventListener('change', apply);
+  })();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="tokens.css">
+<style>
+  /* A laszlobiri design system alapján (tokens.css). Régi változónevek az új tokenekre képezve. */
+  :root {
+    --text: var(--fg);
+    --muted: var(--fg-muted);
+    --card: var(--bg-raised);
+    --accent-soft: color-mix(in srgb, var(--accent) 18%, transparent);
+    --danger: #e2766c;
+    --shadow: 0 0 0 1px var(--line);
+    --radius: var(--radius-md);
+    color-scheme: light dark;
   }
+  :root[data-theme="light"] { --danger: #b3392f; color-scheme: light; }
+  :root[data-theme="slate"] { color-scheme: dark; }
+  .mk .f{fill:var(--mark-filler)}.mk .l{fill:var(--mark-l)}.mk .b{fill:var(--mark-b)}.mk .lr{stroke:var(--mark-l)}.mk .br{stroke:var(--mark-ring)}
+  .mk { width: 40px; height: auto; flex: none; }
+
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    font-family: var(--font-sans); }
   body { min-height: 100dvh; padding-bottom: calc(110px + env(safe-area-inset-bottom)); }
   .wrap { max-width: 640px; margin: 0 auto; padding: 0 16px; }
 
   header { padding: calc(20px + env(safe-area-inset-top)) 0 8px; }
   header .row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  h1 { font-size: 26px; margin: 0; letter-spacing: -.02em; }
+  h1 { font-size: 28px; line-height: 1.1; margin: 0; font-weight: 600; letter-spacing: -.03em; display: flex; align-items: center; gap: 12px; }
+  h1 .biri { color: var(--accent-text); }
   .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
   .icon-btn { border: 0; background: var(--card); color: var(--text); width: 44px; height: 44px;
     border-radius: 50%; box-shadow: var(--shadow); font-size: 20px; cursor: pointer; }
@@ -64,7 +72,7 @@
   .item:last-child { border-bottom: 0; }
   .check { appearance: none; -webkit-appearance: none; flex: none; width: 26px; height: 26px; margin: 0;
     border: 2px solid var(--muted); border-radius: 50%; display: grid; place-content: center; cursor: pointer; transition: .15s; }
-  .check::after { content: ""; width: 12px; height: 7px; border-left: 3px solid #fff; border-bottom: 3px solid #fff;
+  .check::after { content: ""; width: 12px; height: 7px; border-left: 3px solid var(--brand-black); border-bottom: 3px solid var(--brand-black);
     transform: rotate(-45deg) scale(0); margin-top: -3px; transition: .15s; }
   .check:checked { background: var(--accent); border-color: var(--accent); }
   .check:checked::after { transform: rotate(-45deg) scale(1); }
@@ -87,7 +95,7 @@
     background: var(--card); color: var(--text); font-size: 17px; padding: 0 20px; box-shadow: var(--shadow); outline: none; }
   .addbar input:focus { border-color: var(--accent); }
   .addbar form button { flex: none; width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--accent);
-    color: #fff; font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
+    color: var(--brand-black); font-size: 28px; line-height: 1; cursor: pointer; box-shadow: var(--shadow); }
   .addbar form button:active { transform: scale(.95); }
   .chips { display: flex; gap: 8px; overflow-x: auto; max-width: 640px; margin: 0 auto 10px; padding: 0 16px; scrollbar-width: none; }
   .chips::-webkit-scrollbar { display: none; }
@@ -96,14 +104,13 @@
   .chip:active { background: var(--accent-soft); }
 
   .toast { position: fixed; left: 50%; bottom: calc(150px + env(safe-area-inset-bottom)); transform: translate(-50%, 20px);
-    background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 99px; font-size: 14px;
+    background: var(--brand-black); color: var(--brand-mist); padding: 10px 16px; border-radius: 99px; font-size: 14px;
     opacity: 0; pointer-events: none; transition: .25s; display: flex; gap: 12px; align-items: center; }
   .toast.show { opacity: 1; transform: translate(-50%, 0); pointer-events: auto; }
-  .toast button { background: none; border: 0; color: var(--accent); font-weight: 700; font-size: 14px; cursor: pointer; }
-  @media (prefers-color-scheme: dark) { .toast button { color: #1f6b4a; } }
+  .toast button { background: none; border: 0; color: var(--brand-orange); font-weight: 700; font-size: 14px; cursor: pointer; }
 
-  dialog { border: 0; border-radius: 20px; padding: 20px; background: var(--card); color: var(--text);
-    width: min(92vw, 380px); box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  dialog { border: 0; border-radius: var(--radius-lg); padding: 20px; background: var(--card); color: var(--text);
+    width: min(92vw, 380px); box-shadow: 0 0 0 1px var(--line); }
   dialog::backdrop { background: rgba(0,0,0,.4); }
   dialog h3 { margin: 0 0 12px; }
   dialog input { width: 100%; height: 46px; border-radius: 12px; border: 1px solid var(--line);
@@ -111,7 +118,7 @@
   dialog .btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; flex-wrap: wrap; }
   dialog .btn { border: 0; border-radius: 12px; padding: 12px 16px; font-size: 15px; cursor: pointer;
     background: var(--bg); color: var(--text); }
-  dialog .btn.primary { background: var(--accent); color: #fff; }
+  dialog .btn.primary { background: var(--accent); color: var(--brand-black); font-weight: 600; }
   dialog .menu button { display: block; width: 100%; text-align: left; border: 0; background: transparent; color: var(--text);
     padding: 14px 6px; font-size: 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
   dialog .menu button:last-child { border-bottom: 0; }
@@ -122,7 +129,7 @@
   <header>
     <div class="row">
       <div>
-        <h1>🛒 Bevásárlólista</h1>
+        <h1><svg class="mk" viewBox="0 0 81 53" role="img" aria-label="laszlobiri jel"><g transform="rotate(180 40.5 26.5)"><g transform="translate(81 0) rotate(90)"><circle class="f" cx="47.5" cy="5.5" r="4"/><circle class="f" cx="33.5" cy="19.5" r="4"/><circle class="f" cx="47.5" cy="33.5" r="4"/><circle class="f" cx="33.5" cy="47.5" r="4"/><circle class="l" cx="5.5" cy="5.5" r="4"/><circle class="l" cx="5.5" cy="19.5" r="4"/><circle class="l" cx="5.5" cy="33.5" r="4"/><circle class="l" cx="5.5" cy="47.5" r="4"/><circle class="l" cx="5.5" cy="61.5" r="4"/><circle class="l" cx="5.5" cy="75.5" r="4"/><circle class="l" cx="19.5" cy="75.5" r="4"/><circle class="l" cx="33.5" cy="75.5" r="4"/><circle class="l" cx="47.5" cy="75.5" r="4"/><circle class="b" cx="19.5" cy="5.5" r="4"/><circle class="b" cx="19.5" cy="19.5" r="4"/><circle class="b" cx="19.5" cy="33.5" r="4"/><circle class="b" cx="19.5" cy="47.5" r="4"/><circle class="b" cx="19.5" cy="61.5" r="4"/><circle class="b" cx="33.5" cy="5.5" r="4"/><circle class="b" cx="33.5" cy="33.5" r="4"/><circle class="b" cx="47.5" cy="19.5" r="4"/><circle class="lr" cx="47.5" cy="61.5" r="3" fill="none" stroke-width="2"/><circle class="br" cx="33.5" cy="61.5" r="3" fill="none" stroke-width="2"/><circle class="br" cx="47.5" cy="47.5" r="3" fill="none" stroke-width="2"/></g></g></svg><span>Bevásárlólista</span></h1>
         <div class="sub" id="sub"></div>
       </div>
       <button class="icon-btn" id="menuBtn" aria-label="Menü">⋯</button>
