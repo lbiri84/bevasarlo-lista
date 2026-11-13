@@ -119,8 +119,10 @@
     width: min(92vw, 380px); box-shadow: 0 0 0 1px var(--line); }
   dialog::backdrop { background: rgba(0,0,0,.4); }
   .pick-cats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 0 12px; }
-  .pick-cat { aspect-ratio: 1; border-radius: 20px; border: 1px solid var(--line); background: var(--bg);
-    font-size: 44px; line-height: 1; cursor: pointer; display: grid; place-content: center; }
+  .pick-cat { min-height: 104px; border-radius: 20px; border: 1px solid var(--line); background: var(--bg); color: var(--text);
+    font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; padding: 8px 6px; }
+  .pick-cat .ic { font-size: 40px; line-height: 1; }
+  .pick-cat .nm { font-size: 13px; line-height: 16px; font-weight: 500; text-align: center; }
   .pick-cat:active { border-color: var(--accent); background: var(--accent-soft); }
   .pick-head { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
   .pick-back { flex: none; width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--bg);
@@ -459,7 +461,7 @@
     const names = [...(CATALOG[cat] || [])];
     state.history.filter(x => x.cat === cat).forEach(x => { if (!names.some(n => fold(n) === fold(x.name))) names.push(x.name); });
     state.items.filter(i => i.cat === cat).forEach(i => { if (!names.some(n => fold(n) === fold(i.name))) names.push(i.name); });
-    return names;
+    return names.sort((a, b) => a.localeCompare(b, 'hu'));
   }
   // Két nézet: nagy kategória-ikonok, majd egy kategória tételei (vissza gombbal).
   function renderPick() {
@@ -467,7 +469,7 @@
     $('pickCats').hidden = inList; $('pickHeading').hidden = inList;
     $('pickHead').hidden = !inList; $('pickList').hidden = !inList;
     if (!inList) {
-      $('pickCats').innerHTML = CATS.map(c => `<button type="button" class="pick-cat" data-cat="${c.id}" aria-label="${c.name}" title="${c.name}">${c.icon}</button>`).join('');
+      $('pickCats').innerHTML = CATS.map(c => `<button type="button" class="pick-cat" data-cat="${c.id}" aria-label="${c.name}"><span class="ic" aria-hidden="true">${c.icon}</span><span class="nm">${c.name}</span></button>`).join('');
       return;
     }
     const cat = CATS.find(c => c.id === pickCat);
