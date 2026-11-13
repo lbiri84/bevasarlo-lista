@@ -254,7 +254,7 @@
       }
       if (done) {
         const items = state.items.filter(i => i.done).sort((a, b) => a.added - b.added);
-        html += `<section class="group done-group"><h2>✓ Kipipálva</h2><ul>${items.map(row).join('')}</ul></section>`;
+        html += `<section class="group done-group"><h2>🧺 Kosárban</h2><ul>${items.map(row).join('')}</ul></section>`;
         html += `<button class="clear" id="clearDone">Kipipáltak törlése (${done})</button>`;
       }
       listEl.innerHTML = html;
