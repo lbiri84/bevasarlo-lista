@@ -1,7 +1,7 @@
 // Egyszerű offline gyorsítótár: az app héja induláskor mentődik.
 // A tokens.css és a lib/v1 külső (laszlobiri.com), ezért nincs az előre mentett listában;
 // az első betöltéskor kerülnek a gyorsítótárba.
-const CACHE = 'bevasarlo-v17';
+const CACHE = 'bevasarlo-v18';
 const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 
 self.addEventListener('install', e => {
@@ -29,7 +29,9 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   if (bypass(url)) return;
   e.respondWith(
-    fetch(e.request).then(res => {
+    // no-cache: a böngésző HTTP-gyorsítótára (GitHub Pages: max-age=600) helyett mindig a szerverhez
+    // fordul; ha a fájl nem változott, csak egy kis 304-es válasz jön. Így a frissítés azonnal látszik.
+    fetch(e.request, { cache: 'no-cache' }).then(res => {
       if (res.ok) {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy));
