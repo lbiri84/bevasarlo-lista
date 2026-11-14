@@ -1,6 +1,6 @@
 // Egyszerű offline gyorsítótár: az app héja induláskor mentődik.
-const CACHE = 'bevasarlo-v14';
-const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-180.png', 'tokens.css'];
+const CACHE = 'bevasarlo-v15';
+const ASSETS = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
