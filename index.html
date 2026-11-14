@@ -54,6 +54,7 @@
   h1 { font-size: 28px; line-height: 1.1; margin: 0; font-weight: 600; letter-spacing: -.03em; display: flex; align-items: center; gap: 12px; }
   h1 .biri { color: var(--accent-text); }
   .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .sub.sync:empty { display: none; }
   .icon-btn { border: 0; background: var(--card); color: var(--text); width: 44px; height: 44px;
     border-radius: 50%; box-shadow: var(--shadow); font-size: 20px; cursor: pointer; }
   .icon-btn:active { transform: scale(.95); }
@@ -153,6 +154,7 @@
       <div>
         <h1><svg class="mk" viewBox="0 0 81 53" role="img" aria-label="laszlobiri jel"><g transform="rotate(180 40.5 26.5)"><g transform="translate(81 0) rotate(90)"><circle class="f" cx="47.5" cy="5.5" r="4"/><circle class="f" cx="33.5" cy="19.5" r="4"/><circle class="f" cx="47.5" cy="33.5" r="4"/><circle class="f" cx="33.5" cy="47.5" r="4"/><circle class="l" cx="5.5" cy="5.5" r="4"/><circle class="l" cx="5.5" cy="19.5" r="4"/><circle class="l" cx="5.5" cy="33.5" r="4"/><circle class="l" cx="5.5" cy="47.5" r="4"/><circle class="l" cx="5.5" cy="61.5" r="4"/><circle class="l" cx="5.5" cy="75.5" r="4"/><circle class="l" cx="19.5" cy="75.5" r="4"/><circle class="l" cx="33.5" cy="75.5" r="4"/><circle class="l" cx="47.5" cy="75.5" r="4"/><circle class="b" cx="19.5" cy="5.5" r="4"/><circle class="b" cx="19.5" cy="19.5" r="4"/><circle class="b" cx="19.5" cy="33.5" r="4"/><circle class="b" cx="19.5" cy="47.5" r="4"/><circle class="b" cx="19.5" cy="61.5" r="4"/><circle class="b" cx="33.5" cy="5.5" r="4"/><circle class="b" cx="33.5" cy="33.5" r="4"/><circle class="b" cx="47.5" cy="19.5" r="4"/><circle class="lr" cx="47.5" cy="61.5" r="3" fill="none" stroke-width="2"/><circle class="br" cx="33.5" cy="61.5" r="3" fill="none" stroke-width="2"/><circle class="br" cx="47.5" cy="47.5" r="3" fill="none" stroke-width="2"/></g></g></svg><span>Bevásárlólista</span></h1>
         <div class="sub" id="sub"></div>
+        <div class="sub sync" id="syncState" role="status" aria-live="polite"></div>
       </div>
       <button class="icon-btn" id="menuBtn" aria-label="Menü">⋯</button>
     </div>
@@ -194,21 +196,10 @@
   <div class="btns"><button class="btn primary" id="pickClose" type="button">Kész</button></div>
 </dialog>
 
-<dialog id="importDlg">
-  <h3>Lista érkezett</h3>
-  <p id="importMsg" style="margin:0 0 8px"></p>
-  <div class="btns" style="flex-direction:column;align-items:stretch">
-    <button class="btn primary" id="impMerge" type="button">Hozzáadás a listámhoz</button>
-    <button class="btn" id="impReplace" type="button">Lecserélem a listámat erre</button>
-    <button class="btn" id="impCancel" type="button">Mégse</button>
-  </div>
-</dialog>
-
 <dialog id="menuDlg">
   <h3>Lista</h3>
   <p class="menu-auth"><lb-auth></lb-auth></p>
   <div class="menu">
-    <button id="linkBtn">🔗 Lista küldése linkként</button>
     <button id="shareBtn">📤 Lista megosztása / másolása</button>
     <button id="uncheckBtn">↺ Mind visszaállítása (nincs kipipálva)</button>
     <button id="clearAllBtn">🗑️ Teljes lista törlése</button>
@@ -216,7 +207,14 @@
   <div class="btns"><button class="btn" id="menuClose">Bezár</button></div>
 </dialog>
 
-<script>
+<script type="module">
+// A lista a háztartás közös listája (Supabase). Minden módosítás azonnal megjelenik,
+// és a kimenő sorba (outbox) kerül; hálózat esetén sorrendben elmegy, offline megvárja.
+// Terv: laszlobiri-com/docs/backend-terv.md, 2. fázis.
+import { ready } from 'https://laszlobiri.com/lib/v1/gate.js';
+import { supabase } from 'https://laszlobiri.com/lib/v1/client.js';
+import { createOutbox } from 'https://laszlobiri.com/lib/v1/outbox.js';
+
 (() => {
   'use strict';
 
@@ -253,19 +251,195 @@
   }
 
   // ---- állapot ----
-  const KEY = 'bevasarlo-lista.v1';
+  // Döntés: a régi, belépés nélküli helyi lista törlődik, nem kerül fel.
+  try { localStorage.removeItem('bevasarlo-lista.v1'); } catch (e) {}
+
+  // Helyi gyorsítótár a közös listáról (offline megnyitáshoz) és a kimenő sor.
+  const KEY = 'bevasarlo-lista.v2';
+  const outbox = createOutbox('bevasarlo-lista.outbox.v1');
+  const CAT_IDS = new Set(CATS.map(c => c.id));
+  const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   let state = load();
+  let noList = false;
+  function empty() { return { items: [], history: [], listId: null, householdId: null, userId: null }; }
   function load() {
     try {
       const s = JSON.parse(localStorage.getItem(KEY));
-      if (s && Array.isArray(s.items)) return s;
+      if (s && Array.isArray(s.items) && Array.isArray(s.history)) return Object.assign(empty(), s);
     } catch (e) {}
-    return { items: [], history: [] };
+    return empty();
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {}
   }
-  const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const uid = () => crypto.randomUUID();
+  const key = name => fold(name).slice(0, 80);
+  const iso = ms => new Date(ms).toISOString();
+
+  // ---- műveletek a kimenő sorba ----
+  function opCreate(it) {
+    outbox.enqueue({ t: 'create', id: it.id, row: {
+      id: it.id, name: it.name, name_key: key(it.name), qty: it.qty || '', cat: it.cat, done: !!it.done, added_at: iso(it.added),
+    } });
+    kick();
+  }
+  function opPatch(id, fields) {
+    if ('name' in fields) fields.name_key = key(fields.name);
+    outbox.enqueue({ t: 'patch', id, fields });
+    kick();
+  }
+  const opDelete = it => opPatch(it.id, { deleted_at: new Date().toISOString() });
+  const opRestore = it => opPatch(it.id, { deleted_at: null, name_key: key(it.name) });
+  function opBump(name, cat) { outbox.enqueue({ t: 'bump', name, cat }); kick(); }
+
+  // A szerver sora → helyi tétel. Ismeretlen kategória vagy hibás azonosító nem kerül a DOM-ba.
+  function fromRow(r) {
+    if (!UUID.test(r.id)) return null;
+    return { id: r.id, name: String(r.name), qty: String(r.qty || ''), cat: CAT_IDS.has(r.cat) ? r.cat : 'egyeb', done: !!r.done, added: Date.parse(r.added_at) || Date.now() };
+  }
+
+  // A még el nem küldött műveletek alkalmazása a szerverről jött állapotra.
+  function replayPending() {
+    for (const op of outbox.pending()) {
+      if (op.t === 'create') {
+        if (state.items.some(i => i.id === op.id || fold(i.name) === op.row.name_key)) continue;
+        const it = fromRow(op.row); if (it) state.items.push(it);
+      } else if (op.t === 'patch') {
+        const it = state.items.find(i => i.id === op.id);
+        const f = op.fields;
+        if (f.deleted_at) { state.items = state.items.filter(i => i.id !== op.id); continue; }
+        if (!it) continue;
+        if ('done' in f) it.done = f.done;
+        if ('name' in f) it.name = f.name;
+        if ('qty' in f) it.qty = f.qty;
+        if ('cat' in f && CAT_IDS.has(f.cat)) it.cat = f.cat;
+      } else if (op.t === 'bump') {
+        bumpLocal(op.name, op.cat);
+      }
+    }
+  }
+
+  // ---- szinkron ----
+  async function handle(op) {
+    if (op.t === 'create') {
+      const { error } = await supabase.from('items').insert({ ...op.row, list_id: state.listId });
+      if (!error) return;
+      if (error.code === '23505' && /items_pkey/.test(error.message)) return;   // már fent van (ismételt küldés)
+      if (error.code === '23505') {
+        // Ugyanilyen nevű tétel már van a listán (pl. a másik telefon offline felvette):
+        // a meglévőhöz csatlakozunk, mint a „már rajta volt” esetben.
+        const { data, error: e2 } = await supabase.from('items').select('id')
+          .eq('list_id', state.listId).eq('name_key', op.row.name_key).maybeSingle();
+        if (e2) throw e2;
+        if (!data) throw error;
+        const fields = { done: false };
+        if (op.row.qty) fields.qty = op.row.qty;
+        const { error: e3 } = await supabase.from('items').update(fields).eq('id', data.id);
+        if (e3) throw e3;
+        outbox.rewrite(o => (o.id === op.id ? { ...o, id: data.id } : o));
+        return;
+      }
+      throw error;
+    }
+    if (op.t === 'patch') {
+      const { error } = await supabase.from('items').update(op.fields).eq('id', op.id);
+      // 23505: a visszavonás vagy átnevezés ütközik egy azóta felvett azonos nevű tétellel → elmarad.
+      if (error && error.code !== '23505') throw error;
+      return;
+    }
+    if (op.t === 'bump') {
+      const { error } = await supabase.rpc('bump_history', {
+        p_household: state.householdId, p_name_key: key(op.name), p_name: op.name, p_cat: op.cat,
+      });
+      if (error) throw error;
+    }
+  }
+
+  async function ensureList() {
+    if (state.listId) return true;
+    const { data, error } = await supabase.from('lists').select('id, household_id').limit(1).maybeSingle();
+    if (error) throw error;
+    if (!data) { noList = true; render(); return false; }
+    state.listId = data.id; state.householdId = data.household_id; save();
+    return true;
+  }
+
+  async function pull() {
+    const [items, hist] = await Promise.all([
+      supabase.from('items').select('id, name, qty, cat, done, added_at')
+        .eq('list_id', state.listId).is('deleted_at', null).order('added_at'),
+      supabase.from('item_history').select('name, cat, count, last_used')
+        .eq('household_id', state.householdId)
+        .order('count', { ascending: false }).order('last_used', { ascending: false }).limit(200),
+    ]);
+    if (items.error) throw items.error;
+    if (hist.error) throw hist.error;
+    state.items = items.data.map(fromRow).filter(Boolean);
+    state.history = hist.data.filter(h => CAT_IDS.has(h.cat))
+      .map(h => ({ name: String(h.name), cat: h.cat, count: h.count, last: Date.parse(h.last_used) || 0 }));
+    replayPending();
+    save(); render();
+  }
+
+  let syncing = false, again = false, kickTimer = null, channel = null;
+  const kick = () => { clearTimeout(kickTimer); kickTimer = setTimeout(sync, 300); };
+  async function sync() {
+    if (!supabase) return;
+    if (syncing) { again = true; return; }
+    syncing = true;
+    try {
+      if (!(await ensureList())) return;
+      const r = await outbox.flush(handle, (op, error) => {
+        console.warn('A művelet nem menthető, kimarad:', op, error);
+        toast('Egy változást nem sikerült menteni');
+      });
+      if (r !== 'offline') await pull();
+      subscribe();
+    } catch (e) {
+      /* hálózati hiba: a következő alkalommal újra */
+    } finally {
+      syncing = false;
+      renderStatus();
+      if (again) { again = false; kick(); }
+    }
+  }
+
+  // Valós idejű frissítés: a másik telefon módosítása után újratöltjük a listát.
+  // Hiba vagy bontás után a következő szinkron újra feliratkozik.
+  function subscribe() {
+    if (channel || !state.listId) return;
+    let t, closed = false;
+    const ch = supabase.channel('items:' + state.listId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'items', filter: 'list_id=eq.' + state.listId },
+        () => { clearTimeout(t); t = setTimeout(kick, 200); });
+    channel = ch;
+    ch.subscribe(status => {
+      if (closed || !['CHANNEL_ERROR', 'TIMED_OUT', 'CLOSED'].includes(status)) return;
+      closed = true;                       // a removeChannel újra CLOSED-ot jelez: csak egyszer
+      if (channel === ch) channel = null;
+      supabase.removeChannel(ch);
+    });
+  }
+
+  function renderStatus() {
+    const el = document.getElementById('syncState');
+    if (!el) return;
+    const n = outbox.size();
+    el.textContent = noList ? 'Ehhez a fiókhoz nem tartozik közös lista.'
+      : n ? (navigator.onLine === false ? `Offline · ${n} változás vár` : `Mentés… (${n})`) : '';
+  }
+
+  async function start() {
+    const { user } = await ready;
+    // Másik felhasználó lépett be ezen a telefonon: a helyi másolat és a sor az előzőé.
+    if (user && state.userId && state.userId !== user.id) { state = empty(); outbox.clear(); }
+    if (user) { state.userId = user.id; save(); }
+    render();
+    sync();
+  }
+  window.addEventListener('online', kick);
+  window.addEventListener('offline', renderStatus);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kick(); });
 
   // ---- elemek ----
   const $ = id => document.getElementById(id);
@@ -281,6 +455,7 @@
     const total = state.items.length;
     const done = state.items.filter(i => i.done).length;
     $('sub').textContent = total ? `${done} / ${total} kipipálva` : 'Még üres a lista';
+    renderStatus();
     $('bar').style.width = total ? (done / total * 100) + '%' : '0';
 
     if (!total) {
@@ -337,21 +512,30 @@
     return { name: t, qty };
   }
   function addItem(raw, cat) {
-    const { name, qty } = parse(raw);
+    let { name, qty } = parse(raw);
+    name = name.slice(0, 80); qty = qty.slice(0, 30);
     if (!name) return;
     const existing = state.items.find(i => fold(i.name) === fold(name));
     if (existing) {
-      existing.done = false;
-      if (qty) existing.qty = qty;
+      const fields = {};
+      if (existing.done) { existing.done = false; fields.done = false; }
+      if (qty && qty !== existing.qty) { existing.qty = qty; fields.qty = qty; }
+      if (Object.keys(fields).length) opPatch(existing.id, fields);
       toast(`„${existing.name}" már rajta volt`);
     } else {
       const c = cat || guessCat(name);
-      state.items.push({ id: uid(), name, qty, cat: c, done: false, added: Date.now() });
+      const it = { id: uid(), name, qty, cat: c, done: false, added: Date.now() };
+      state.items.push(it);
+      opCreate(it);
       bumpHistory(name, c);
     }
     save(); render();
   }
   function bumpHistory(name, cat) {
+    bumpLocal(name, cat);
+    opBump(name, cat);
+  }
+  function bumpLocal(name, cat) {
     const h = state.history.find(x => fold(x.name) === fold(name));
     if (h) { h.count++; h.last = Date.now(); h.cat = cat; }
     else state.history.push({ name, cat, count: 1, last: Date.now() });
@@ -385,19 +569,28 @@
     toastTimer = setTimeout(() => $('toast').classList.remove('show'), 4000);
   }
   $('undoBtn').addEventListener('click', () => {
-    if (lastRemoved) { state.items.push(...lastRemoved); lastRemoved = null; save(); render(); }
+    if (lastRemoved) {
+      for (const it of lastRemoved) {
+        // Ha közben ugyanilyen nevű tétel került a listára, a visszavonás elmarad.
+        if (state.items.some(i => fold(i.name) === fold(it.name))) continue;
+        state.items.push(it);
+        opRestore(it);
+      }
+      lastRemoved = null; save(); render();
+    }
     $('toast').classList.remove('show');
   });
 
   listEl.addEventListener('change', e => {
     if (!e.target.classList.contains('check')) return;
     const it = state.items.find(i => i.id === e.target.closest('.item').dataset.id);
-    if (it) { it.done = e.target.checked; save(); render(); if (navigator.vibrate) navigator.vibrate(10); }
+    if (it) { it.done = e.target.checked; opPatch(it.id, { done: it.done }); save(); render(); if (navigator.vibrate) navigator.vibrate(10); }
   });
   listEl.addEventListener('click', e => {
     if (e.target.id === 'clearDone') {
       lastRemoved = state.items.filter(i => i.done);
       state.items = state.items.filter(i => !i.done);
+      lastRemoved.forEach(opDelete);
       save(); render(); toast(`${lastRemoved.length} tétel törölve`, true);
       return;
     }
@@ -408,6 +601,7 @@
     if (act === 'del') {
       lastRemoved = [it];
       state.items = state.items.filter(i => i !== it);
+      opDelete(it);
       save(); render(); toast(`„${it.name}" törölve`, true);
     } else if (act === 'edit') {
       openEdit(it);
@@ -426,8 +620,16 @@
   $('editCancel').addEventListener('click', () => editDlg.close());
   $('editForm').addEventListener('submit', () => {
     if (!editing) return;
-    const { name, qty } = parse($('editName').value);
-    if (name) { editing.name = name; editing.qty = qty; editing.cat = $('editCat').value; bumpHistory(name, editing.cat); }
+    let { name, qty } = parse($('editName').value);
+    name = name.slice(0, 80); qty = qty.slice(0, 30);
+    if (name) {
+      // Átnevezésnél a név nem ütközhet egy másik tétellel a listán.
+      const clash = state.items.find(i => i !== editing && fold(i.name) === fold(name));
+      if (clash) { toast(`„${clash.name}" már rajta van a listán`); return; }
+      editing.name = name; editing.qty = qty; editing.cat = $('editCat').value;
+      opPatch(editing.id, { name, qty, cat: editing.cat });
+      bumpHistory(name, editing.cat);
+    }
     save(); render();
   });
 
@@ -436,11 +638,13 @@
   $('menuBtn').addEventListener('click', () => menuDlg.showModal());
   $('menuClose').addEventListener('click', () => menuDlg.close());
   $('uncheckBtn').addEventListener('click', () => {
-    state.items.forEach(i => i.done = false); save(); render(); menuDlg.close();
+    state.items.forEach(i => { if (i.done) { i.done = false; opPatch(i.id, { done: false }); } });
+    save(); render(); menuDlg.close();
   });
   $('clearAllBtn').addEventListener('click', () => {
     if (!state.items.length) return menuDlg.close();
     lastRemoved = state.items; state.items = [];
+    lastRemoved.forEach(opDelete);
     save(); render(); menuDlg.close(); toast('Lista törölve', true);
   });
   $('shareBtn').addEventListener('click', async () => {
@@ -504,85 +708,22 @@
     const b = e.target.closest('.pick-item'); if (!b) return;
     const name = b.dataset.name;
     const ex = state.items.find(i => fold(i.name) === fold(name) && !i.done);
-    if (ex) { state.items = state.items.filter(i => i !== ex); save(); render(); }
+    if (ex) { state.items = state.items.filter(i => i !== ex); opDelete(ex); save(); render(); }
     else addItem(name, pickCat);
     renderPick();
   });
   $('pickClose').addEventListener('click', () => pickDlg.close());
 
-  // ---- lista küldése linkként: a tartalom a link # utáni részében utazik (a szerverre nem megy el) ----
-  const b64 = bytes => { let s = ''; bytes.forEach(b => s += String.fromCharCode(b)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); };
-  const unb64 = t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-  async function pipe(bytes, Stream) {
-    const s = new Blob([bytes]).stream().pipeThrough(new Stream('deflate-raw'));
-    return new Uint8Array(await new Response(s).arrayBuffer());
-  }
-  async function encodeList() {
-    const data = state.items.map(i => [i.name, i.qty || '', i.cat, i.done ? 1 : 0]);
-    const raw = new TextEncoder().encode(JSON.stringify(data));
-    if (typeof CompressionStream !== 'undefined') {
-      try { return 'z' + b64(await pipe(raw, CompressionStream)); } catch (e) {}
-    }
-    return 'j' + b64(raw);
-  }
-  async function decodeList(code) {
-    let bytes = unb64(code.slice(1));
-    if (code[0] === 'z') bytes = await pipe(bytes, DecompressionStream);
-    const data = JSON.parse(new TextDecoder().decode(bytes));
-    if (!Array.isArray(data)) throw new Error('bad');
-    const ids = new Set(CATS.map(c => c.id));
-    return data.slice(0, 500).filter(r => Array.isArray(r) && typeof r[0] === 'string' && r[0].trim()).map(r => ({
-      name: String(r[0]).slice(0, 80), qty: String(r[1] || '').slice(0, 30),
-      cat: ids.has(r[2]) ? r[2] : 'egyeb', done: !!r[3],
-    }));
-  }
-  $('linkBtn').addEventListener('click', async () => {
-    menuDlg.close();
-    if (!state.items.length) { toast('A lista üres, nincs mit küldeni'); return; }
-    const url = location.origin + location.pathname + '#l=' + await encodeList();
-    try {
-      if (navigator.share) { await navigator.share({ title: 'Bevásárlólista', text: `Bevásárlólista (${state.items.length} tétel). Nyisd meg, és betöltődik:`, url }); return; }
-      await navigator.clipboard.writeText(url);
-      toast('Link a vágólapon, küldd el üzenetben');
-    } catch (e) { /* megszakítva */ }
-  });
-  let incoming = null;
-  const importDlg = $('importDlg');
-  async function checkIncoming() {
-    const m = /^#l=([zj][A-Za-z0-9_-]+)$/.exec(location.hash);
-    if (!m) return;
-    history.replaceState(null, '', location.pathname + location.search);
-    try { incoming = await decodeList(m[1]); } catch (e) { toast('A link hibás, nem tudtam betölteni'); return; }
-    if (!incoming.length) return;
-    $('importMsg').textContent = `${incoming.length} tétel érkezett.` + (state.items.length ? ` A jelenlegi listádon ${state.items.length} tétel van.` : '');
-    $('impMerge').hidden = !state.items.length;
-    $('impReplace').textContent = state.items.length ? 'Lecserélem a listámat erre' : 'Betöltés';
-    $('impReplace').classList.toggle('primary', !state.items.length);
-    importDlg.showModal();
-  }
-  function applyIncoming(replace) {
-    if (!incoming) return;
-    if (replace) state.items = [];
-    const now = Date.now();
-    incoming.forEach((r, k) => {
-      const ex = state.items.find(i => fold(i.name) === fold(r.name));
-      if (ex) { if (r.qty) ex.qty = r.qty; return; }
-      state.items.push({ id: uid(), name: r.name, qty: r.qty, cat: r.cat, done: r.done, added: now + k });
-      bumpHistory(r.name, r.cat);
-    });
-    incoming = null; save(); render(); importDlg.close();
-  }
-  $('impMerge').addEventListener('click', () => applyIncoming(false));
-  $('impReplace').addEventListener('click', () => applyIncoming(true));
-  $('impCancel').addEventListener('click', () => { incoming = null; importDlg.close(); });
-  window.addEventListener('hashchange', checkIncoming);
 
   // ---- PWA ----
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
   // más fülön/ablakban történt változás
-  window.addEventListener('storage', e => { if (e.key === KEY) { state = load(); render(); } });
+  window.addEventListener('storage', e => {
+    if (e.key === KEY) { state = load(); render(); }
+    if (e.key === 'bevasarlo-lista.outbox.v1') renderStatus();
+  });
 
   // Enter küldi el (az egysoros textarea nem szúr be új sort)
   input.addEventListener('keydown', e => {
@@ -594,7 +735,7 @@
   });
 
   render();
-  checkIncoming();
+  start();
 })();
 </script>
 </body>
