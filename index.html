@@ -715,9 +715,32 @@ import { createOutbox } from 'https://laszlobiri.com/lib/v1/outbox.js';
   $('pickClose').addEventListener('click', () => pickDlg.close());
 
 
-  // ---- PWA ----
+  // ---- PWA, automatikus frissítés ----
+  // A kezdőképernyőre tett app a háttérben nyitva marad, és előtérbe hozáskor nem tölt újra. Ezért
+  // előtérbe kerüléskor és félóránként új változatot keresünk; ha van, a service worker átveszi az
+  // oldalt, és akkor töltünk újra, amikor nem zavar: háttérben, vagy ha nem gépelsz és nincs nyitva
+  // párbeszédablak. A lista nem vész el: helyben és a kimenő sorban megvan.
+  let updateReady = false;
+  function reloadIfSafe() {
+    if (!updateReady) return;
+    const a = document.activeElement;
+    const busy = document.querySelector('dialog[open]') || (a && (a.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)));
+    if (document.visibilityState === 'hidden' || !busy) location.reload();
+  }
   if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    let hadController = !!navigator.serviceWorker.controller;   // az első átvétel (telepítés) nem frissítés
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) { hadController = true; return; }
+      updateReady = true;
+      reloadIfSafe();
+    });
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').then(reg => {
+      const check = () => reg.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') check(); else reloadIfSafe(); });
+      setInterval(check, 30 * 60 * 1000);
+      setInterval(reloadIfSafe, 60 * 1000);
+    }).catch(() => {}));
+    document.addEventListener('focusout', () => setTimeout(reloadIfSafe, 500));
   }
   // más fülön/ablakban történt változás
   window.addEventListener('storage', e => {

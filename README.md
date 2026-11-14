@@ -21,6 +21,8 @@ Az oldal csak belépve használható. A `<head>` elején a laszlobiri belépési
 - Ha két telefon offline ugyanazt a tételt veszi fel, nem lesz dupla: a második a meglévőhöz csatlakozik („már rajta volt”).
 - A helyi másolat (`bevasarlo-lista.v2`) csak az offline megnyitást szolgálja. A régi, belépés nélküli lista (`bevasarlo-lista.v1`) az első indításkor törlődik.
 
+Frissítés: az app előtérbe kerüléskor és félóránként új változatot keres, és ha van, magától újratölt, amikor nem zavar (háttérben, vagy ha nem gépelsz és nincs nyitva párbeszédablak). A service worker a fájlokat `cache: 'no-cache'`-sel kéri, így a GitHub Pages 10 perces gyorsítótára sem késlelteti.
+
 A service worker a Supabase-kéréseket (`*.supabase.co`) és a belépőoldalt nem kezeli és nem menti el. A `sw.js`-ben minden kiadásnál emeld a gyorsítótár verzióját (`bevasarlo-vN`).
 
 ## Publikálás
