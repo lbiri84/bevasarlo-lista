@@ -2,6 +2,11 @@
 <html lang="hu">
 <head>
 <meta charset="utf-8">
+<!-- Belépési kapu (https://laszlobiri.com/lib/v1/gate.js): belépés nélkül azonnal a belépőoldalra irányít. -->
+<style id="lb-gate">html{visibility:hidden}</style>
+<script>/* lb-gate */if(!/(?:^|;\s*)sb-[a-z0-9]+-auth-token(?:\.0)?=/.test(document.cookie))location.replace('https://laszlobiri.com/belepes/?next='+encodeURIComponent(location.href))</script>
+<script type="module" src="https://laszlobiri.com/lib/v1/gate.js"></script>
+<script type="module" src="https://laszlobiri.com/lib/v1/auth-badge.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#293c4b">
 <meta name="robots" content="noindex">
@@ -36,6 +41,7 @@
   :root[data-theme="slate"] { color-scheme: dark; }
   .mk .f{fill:var(--mark-filler)}.mk .l{fill:var(--mark-l)}.mk .b{fill:var(--mark-b)}.mk .lr{stroke:var(--mark-l)}.mk .br{stroke:var(--mark-ring)}
   .mk { width: 40px; height: auto; flex: none; }
+  .menu-auth { margin: 0 0 12px; }
 
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
@@ -200,6 +206,7 @@
 
 <dialog id="menuDlg">
   <h3>Lista</h3>
+  <p class="menu-auth"><lb-auth></lb-auth></p>
   <div class="menu">
     <button id="linkBtn">🔗 Lista küldése linkként</button>
     <button id="shareBtn">📤 Lista megosztása / másolása</button>
